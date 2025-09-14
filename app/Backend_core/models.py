@@ -1,72 +1,72 @@
-# models.py
-"""
-Defines the data models for the application, including City and AQIData.
-This file demonstrates encapsulation and inheritance.
-"""
+from dataclasses import dataclass
+from typing import List, Dict, Optional
+from datetime import datetime
 
+@dataclass
+class PollutantData:
+    """Represents data for a specific pollutant at a station."""
+    pollutant_id: str
+    min_value: float
+    max_value: float
+    avg_value: float
+
+@dataclass
+class StationData:
+    """Represents all data from a monitoring station."""
+    station: str
+    latitude: float
+    longitude: float
+    last_update: str
+    pollutants: List[PollutantData]
+
+@dataclass
 class City:
-    """Represents a city for which AQI data is requested."""
-    def __init__(self, name: str):
-        # Encapsulation: __name is a private attribute.
-        self.__name = name
-
+    """Represents a city with its basic information."""
+    def __init__(self, name: str, country: str = "", state: str = ""):
+        self._name = name
+        self._country = country
+        self._state = state
+    
     def get_name(self) -> str:
-        """Getter for the city name."""
-        return self.__name
+        return self._name
+    
+    def get_country(self) -> str:
+        return self._country
+    
+    def get_state(self) -> str:
+        return self._state
 
-    def set_name(self, name: str):
-        """Setter for the city name."""
-        if isinstance(name, str) and name.strip():
-            self.__name = name
-        else:
-            print("Error: City name must be a non-empty string.")
-
+@dataclass
 class AQIData:
-    """A base class representing generic Air Quality Index data."""
-    def __init__(self, station: str, pollutant_id: str, avg_value: str, last_update: str):
-        # Encapsulation: Private attributes for data integrity.
-        self.__station = station
-        self.__pollutant_id = pollutant_id
-        self.__avg_value = avg_value
-        self.__last_update = last_update
-
-    # --- Getters for private attributes ---
-    def get_station(self) -> str:
-        return self.__station
-
-    def get_pollutant_id(self) -> str:
-        return self.__pollutant_id
-
-    def get_avg_value(self) -> str:
-        return self.__avg_value
-
-    def get_last_update(self) -> str:
-        return self.__last_update
-
+    """Base class for AQI data."""
+    def __init__(self, aqi_value: int, timestamp: str = ""):
+        self._aqi_value = aqi_value
+        self._timestamp = timestamp
+    
+    def get_aqi_value(self) -> int:
+        return self._aqi_value
+    
     def display(self) -> str:
-        """
-        Polymorphism: A base method to represent the object as a string.
-        Subclasses can override this for more specific behavior.
-        """
-        return (f"Station: {self.__station}, "
-                f"Pollutant: {self.__pollutant_id}, "
-                f"Avg: {self.__avg_value}, "
-                f"Updated: {self.__last_update}")
+        return f"AQI: {self._aqi_value}"
 
-# --- Inheritance ---
+@dataclass
 class RealTimeAQIData(AQIData):
-    """
-    Inherits from AQIData. Represents AQI data fetched from a real-time source.
-    This class can be extended with real-time specific attributes or methods.
-    """
-    def __init__(self, station: str, pollutant_id: str, avg_value: str, last_update: str):
-        # Call the parent class constructor
-        super().__init__(station, pollutant_id, avg_value, last_update)
-
-    # --- Polymorphism ---
+    """Represents real-time AQI data for a city."""
+    def __init__(self, city: City, aqi_value: int, stations: List[StationData], timestamp: str = ""):
+        super().__init__(aqi_value, timestamp)
+        self.city = city
+        self.stations = stations
+    
     def display(self) -> str:
-        """
-        Overrides the parent's display method to add a "Real-time" context.
-        """
-        base_display_string = super().display()
-        return f"[Real-time] {base_display_string}"
+        return f"Real-time AQI for {self.city.get_name()}: {self._aqi_value} ({len(self.stations)} stations)"
+
+@dataclass
+class CityAQISummary:
+    """Comprehensive summary of city AQI data."""
+    city: City
+    overall_aqi: int
+    dominant_pollutant: str
+    stations: List[StationData]
+    air_quality_level: str
+    health_recommendation: str
+    color_code: str
