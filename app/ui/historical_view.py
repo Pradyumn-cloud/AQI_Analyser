@@ -2,12 +2,26 @@
 import flet as ft
 from assets import styles as S
 
-class HistoricalView:
+class HistoricalView(ft.View):
     def __init__(self, page: ft.Page, city="Delhi", app_instance=None):
+        super().__init__(
+            route="/historical",
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            vertical_alignment=ft.MainAxisAlignment.START
+        )
         self.page = page
         self.city = city
         self.app = app_instance
         self.historical_data = []
+        
+        # Basic controls for historical view
+        self.controls = [
+            ft.Container(height=50),
+            ft.Text("Historical AQI Data", size=32, weight=ft.FontWeight.BOLD),
+            ft.Text("Historical data view is under construction", size=16),
+            ft.Container(height=50),
+            ft.ElevatedButton("Back to Home", on_click=lambda _: self.page.go("/")),
+        ]
         self.selected_date = None
         self._load_historical_data()
     

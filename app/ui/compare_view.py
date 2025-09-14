@@ -2,12 +2,26 @@
 import flet as ft
 from assets import styles as S
 
-class CompareView:
+class CompareView(ft.View):
     def __init__(self, page: ft.Page, app_instance=None):
+        super().__init__(
+            route="/compare",
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            vertical_alignment=ft.MainAxisAlignment.START
+        )
         self.page = page
         self.app = app_instance
         self.available_cities = []
         self.selected_city_a = "Delhi"
+        
+        # Basic controls for compare view
+        self.controls = [
+            ft.Container(height=50),
+            ft.Text("Compare Cities AQI", size=32, weight=ft.FontWeight.BOLD),
+            ft.Text("City comparison view is under construction", size=16),
+            ft.Container(height=50),
+            ft.ElevatedButton("Back to Home", on_click=lambda _: self.page.go("/")),
+        ]
         self.selected_city_b = "Mumbai"
         self.comparison_data = None
         self.city_a_data = {}
