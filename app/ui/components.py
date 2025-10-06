@@ -84,36 +84,92 @@ class SearchBar(ft.Container):
 class AQICard(ft.Container):
     """Large AQI Display Card"""
     def __init__(self):
+        # Data controls (hidden initially)
         self.aqi_value = ft.Text("--", style=S.H1)
         self.aqi_level = ft.Text("Awaiting data...", style=S.H3)
         self.city_name = ft.Text("", style=S.CAPTION)
         self.badge = ft.Container()
         self.last_updated = ft.Text("", style=S.SMALL)
-        
+
+        # Data column (hidden until we have real data)
+        self.data_column = ft.Column([
+            ft.Row([
+                ft.Column([
+                    ft.Text("AIR QUALITY INDEX", style=S.CAPTION),
+                    self.aqi_value,
+                    self.aqi_level,
+                    self.city_name,
+                ], spacing=4),
+                ft.Container(expand=True),
+                ft.Column([
+                    self.badge,
+                    ft.Container(height=8),
+                    self.last_updated
+                ], horizontal_alignment=ft.CrossAxisAlignment.END)
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+        ])
+
+        # Placeholder shown initially
+        placeholder_text = "Hi there! 😄 Type the city name and click the search button."
+        # Keep placeholder text control so it can be updated (e.g., 'No data found')
+        self.placeholder_text = ft.Text(placeholder_text, style=S.H3, text_align=ft.TextAlign.CENTER)
+        self.placeholder = ft.Container(
+            content=ft.Column([
+                self.placeholder_text
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            alignment=ft.alignment.center,
+        )
+
+        # Start with placeholder visible and data hidden
+        self.data_column.visible = False
+        self.placeholder.visible = True
+
         super().__init__(
             content=ft.Column([
-                ft.Row([
-                    ft.Column([
-                        ft.Text("AIR QUALITY INDEX", style=S.CAPTION),
-                        self.aqi_value,
-                        self.aqi_level,
-                        self.city_name,
-                    ], spacing=4),
-                    ft.Container(expand=True),
-                    ft.Column([
-                        self.badge,
-                        ft.Container(height=8),
-                        self.last_updated
-                    ], horizontal_alignment=ft.CrossAxisAlignment.END)
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                self.placeholder,
+                self.data_column
             ]),
             gradient=S.GRADIENT_DARK,
             padding=32,
             border_radius=S.RADIUS_LARGE,
             shadow=S.SHADOW_ELEVATED
         )
-    
+
+    def show_placeholder(self):
+        """Show the centered placeholder and hide data view."""
+        # Reset placeholder to greeting
+        self.placeholder_text.value = "Hi there! 😄 Type the city name and click the search button."
+        self.placeholder.visible = True
+        self.data_column.visible = False
+        # reset visual state
+        self.aqi_value.value = "--"
+        self.aqi_level.value = ""
+        self.city_name.value = ""
+        self.badge.content = ft.Container()
+        self.last_updated.value = ""
+        self.gradient = S.GRADIENT_DARK
+        self.update()
+
+    def show_not_found(self, city: str):
+        """Show a centered 'no data' message for the given city."""
+        print(f"AQICard.show_not_found() called for: {city}")
+        self.placeholder_text.value = f"No data found for {city.title()}"
+        self.placeholder.visible = True
+        self.data_column.visible = False
+        # reset any data controls
+        self.aqi_value.value = "--"
+        self.aqi_level.value = ""
+        self.city_name.value = ""
+        self.badge.content = ft.Container()
+        self.last_updated.value = ""
+        self.gradient = S.GRADIENT_DARK
+        self.update()
+
     def update_data(self, aqi: int, level: str, city: str, timestamp: str = "Just now"):
+        # Switch to data view
+        self.placeholder.visible = False
+        self.data_column.visible = True
+
         self.aqi_value.value = str(aqi)
         self.aqi_level.value = level
         self.city_name.value = city.title()
