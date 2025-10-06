@@ -22,7 +22,7 @@ class HomeView(ft.View):
         
         self._init_components()
         self._build_layout()
-    
+
     def _init_components(self):
         """Initialize all components"""
         self.navbar = NavBar(self.page)
@@ -37,7 +37,7 @@ class HomeView(ft.View):
         self.pollutants_section = InfoSection("Pollutant Analysis", ft.Icons.SCIENCE, S.PRIMARY)
         self.stations_section = InfoSection("Monitoring Stations", ft.Icons.LOCATION_ON, S.ACCENT)
         self.recommendations_section = InfoSection("Health Recommendations", ft.Icons.HEALTH_AND_SAFETY, S.SUCCESS)
-    
+
     def _build_layout(self):
         """Build the complete layout"""
         self.controls = [
@@ -150,7 +150,23 @@ class HomeView(ft.View):
                 analysis = self.analyser.get_comprehensive_analysis(summary)
                 self._display_results(analysis, summary)
             else:
+                # Show user-facing message
+                print(f"HomeView: No data found for {city}; invoking show_not_found()")
                 self._show_snackbar(f"No data found for {city}", S.ERROR)
+
+                # Show AQI card 'no data' placeholder and clear other UI lists
+                try:
+                    self.aqi_card.show_not_found(city)
+                    print("HomeView: called aqi_card.show_not_found")
+                    self.metrics.clear()
+                    self.pollutants_section.clear()
+                    self.stations_section.clear()
+                    self.recommendations_section.clear()
+                    self.page.update()
+                    print("HomeView: page.update() called after no-data handling")
+                except Exception as ex:
+                    print(f"HomeView: exception while showing not-found: {ex}")
+                    self.page.update()
         except Exception as ex:
             self._show_snackbar(f"Error: {str(ex)}", S.ERROR)
         finally:

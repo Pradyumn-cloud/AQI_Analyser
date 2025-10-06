@@ -88,8 +88,16 @@ class AQIFetcher:
                     }
                 }
             else:
-                print(f"No records found for {city_name}, using fallback data")
-                return self._get_fallback_data(city_name)
+                # When the API responds but no records are present for the queried city,
+                # return a non-ok status so the caller can surface "No data found" to the user.
+                print(f"API returned no records for {city_name}; returning no_records status")
+                return {
+                    "status": "no_records",
+                    "data": {
+                        "city": city_name,
+                        "records": []
+                    }
+                }
             
         except requests.exceptions.RequestException as e:
             print(f"API Error fetching data for {city_name}: {e}")
