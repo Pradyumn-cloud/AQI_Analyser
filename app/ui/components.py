@@ -1,97 +1,268 @@
-# ui/components.py
 import flet as ft
 from assets import styles as S
 
-def header_row(city: str, right_controls: list[ft.Control] | None = None) -> ft.Row:
-    return ft.Row(
-        controls=[
-            ft.Text(city, style=S.TITLE),
-            ft.Row(right_controls or [], spacing=10),
-        ],
-        alignment="spaceBetween",
-    )
-
-def big_aqi_card(aqi_value: int, status: str, color: str) -> ft.Container:
-    return S.card(
-        ft.Column(
-            [
-                ft.Row(
-                    [
-                        ft.Text(str(aqi_value), style=S.H1),
-                        S.aqi_badge(status, color),
-                    ],
-                    alignment="spaceBetween",
-                ),
-                ft.Text(
-                    "Air Quality Index (demo data)",
-                    style=S.CAPTION
-                ),
-            ],
-            spacing=10,
-        ),
-        padding=20,
-    )
-
-def grid_metrics(items: list[tuple[str, str, str | None]]):
-    """
-    items: [(title, value, hint), ...]
-    """
-    tiles = [S.metric(t, v, h) for t, v, h in items]
-    return ft.ResponsiveRow(
-        controls=[
-            ft.Container(col={"xs": 12, "sm": 6, "md": 4}, content=t) for t in tiles
-        ],
-        run_spacing=12,
-        spacing=12,
-    )
-
-def horizontal_chip_cards(pairs: list[tuple[str,str,str]]):
-    """
-    pairs: [(icon, title, subtitle), ...]
-    """
-    cards = []
-    for ic, title, sub in pairs:
-        cards.append(
-            ft.Container(
-                content=ft.Row(
-                    [
-                        ft.Icon(ic, size=22),
-                        ft.Column(
-                            [ft.Text(title, style=S.BODY),
-                             ft.Text(sub, style=S.CAPTION, color=S.POOR if "Poor" in sub else S.MODERATE)],
-                            spacing=2,
-                        ),
-                    ],
-                    alignment="start",
-                    spacing=10,
-                ),
-                padding=16,
-                bgcolor=S.CARD_SOFT,
-                border_radius=16,
-            )
+class NavBar(ft.Container):
+    """Professional Navigation Bar"""
+    def __init__(self, page: ft.Page, title: str = "AQI Monitor Pro"):
+        self.page = page
+        
+        super().__init__(
+            content=ft.Row([
+                ft.Row([
+                    ft.Icon(ft.Icons.AIR, color=S.PRIMARY, size=32),
+                    ft.Text(title, style=S.H3),
+                ], spacing=12),
+                ft.Row([
+                    self._nav_button("Home", "/", ft.Icons.HOME),
+                    self._nav_button("Historical", "/historical", ft.Icons.ANALYTICS),
+                    self._nav_button("Compare", "/compare", ft.Icons.COMPARE_ARROWS),
+                ], spacing=8)
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            bgcolor=S.CARD,
+            padding=ft.padding.symmetric(24, 16),
+            border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.1, S.TEXT_PRIMARY)))
         )
-    return ft.Row(cards, spacing=12, wrap=True)
+    
+    def _nav_button(self, text: str, route: str, icon: ft.Icons):
+        is_active = self.page.route == route
+        return ft.Container(
+            content=ft.Row([
+                ft.Icon(icon, color=S.TEXT_PRIMARY if is_active else S.TEXT_MUTED, size=18),
+                ft.Text(text, style=ft.TextStyle(
+                    size=14,
+                    weight=ft.FontWeight.W_600 if is_active else ft.FontWeight.NORMAL,
+                    color=S.TEXT_PRIMARY if is_active else S.TEXT_MUTED
+                ))
+            ], spacing=6),
+            bgcolor=S.PRIMARY if is_active else None,
+            padding=ft.padding.symmetric(12, 8),
+            border_radius=S.RADIUS_SMALL,
+            on_click=lambda _: self.page.go(route),
+            ink=True
+        )
 
-def phantom_image_box(label="Map / Radar (placeholder)") -> ft.Container:
-    return S.card(
-        ft.Stack(
-            controls=[
+class SearchBar(ft.Container):
+    """Professional Search Component"""
+    def __init__(self, on_search, placeholder: str = "Enter city name"):
+        self.on_search = on_search
+        
+        self.input = ft.TextField(
+            hint_text=placeholder,
+            border_color=S.PRIMARY,
+            focused_border_color=S.PRIMARY_LIGHT,
+            text_style=ft.TextStyle(color=S.TEXT_PRIMARY, size=16),
+            hint_style=ft.TextStyle(color=S.TEXT_MUTED),
+            cursor_color=S.PRIMARY,
+            prefix_icon=ft.Icons.SEARCH,
+            border_radius=S.RADIUS_SMALL,
+            bgcolor=S.CARD,
+            height=56,
+            on_submit=self.on_search
+        )
+        
+        self.button = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.SEARCH, color=S.TEXT_PRIMARY, size=20),
+                ft.Text("Search", style=ft.TextStyle(size=16, weight=ft.FontWeight.W_600, color=S.TEXT_PRIMARY))
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
+            bgcolor=S.PRIMARY,
+            padding=ft.padding.symmetric(24, 16),
+            border_radius=S.RADIUS_SMALL,
+            on_click=self.on_search,
+            ink=True,
+            height=56
+        )
+        
+        super().__init__(
+            content=ft.Row([
+                ft.Container(self.input, expand=True),
+                self.button
+            ], spacing=12),
+            padding=ft.padding.symmetric(0, 0)
+        )
+
+class AQICard(ft.Container):
+    """Large AQI Display Card"""
+    def __init__(self):
+        self.aqi_value = ft.Text("--", style=S.H1)
+        self.aqi_level = ft.Text("Awaiting data...", style=S.H3)
+        self.city_name = ft.Text("", style=S.CAPTION)
+        self.badge = ft.Container()
+        self.last_updated = ft.Text("", style=S.SMALL)
+        
+        super().__init__(
+            content=ft.Column([
+                ft.Row([
+                    ft.Column([
+                        ft.Text("AIR QUALITY INDEX", style=S.CAPTION),
+                        self.aqi_value,
+                        self.aqi_level,
+                        self.city_name,
+                    ], spacing=4),
+                    ft.Container(expand=True),
+                    ft.Column([
+                        self.badge,
+                        ft.Container(height=8),
+                        self.last_updated
+                    ], horizontal_alignment=ft.CrossAxisAlignment.END)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ]),
+            gradient=S.GRADIENT_DARK,
+            padding=32,
+            border_radius=S.RADIUS_LARGE,
+            shadow=S.SHADOW_ELEVATED
+        )
+    
+    def update_data(self, aqi: int, level: str, city: str, timestamp: str = "Just now"):
+        self.aqi_value.value = str(aqi)
+        self.aqi_level.value = level
+        self.city_name.value = city.title()
+        self.badge.content = S.aqi_badge(level, aqi)
+        self.last_updated.value = f"Updated: {timestamp}"
+        self.gradient = S.get_aqi_gradient(aqi)
+        self.update()
+
+class MetricGrid(ft.Container):
+    """Grid of metric cards"""
+    def __init__(self):
+        self.metrics = []
+        super().__init__(
+            content=ft.ResponsiveRow([], spacing=16),
+            padding=0
+        )
+    
+    def add_metric(self, title: str, value: str, icon: str, color: str = S.PRIMARY):
+        metric = S.metric_card(title, value, icon, color)
+        self.content.controls.append(
+            ft.Container(metric, col={"sm": 12, "md": 6, "lg": 3})
+        )
+        self.metrics.append(metric)
+        self.update()
+    
+    def clear(self):
+        self.content.controls.clear()
+        self.metrics.clear()
+        self.update()
+
+class PollutantCard(ft.Container):
+    """Pollutant Information Card"""
+    def __init__(self, name: str, value: float, unit: str = "µg/m³", is_dominant: bool = False):
+        color = S.ERROR if is_dominant else S.PRIMARY
+        bgcolor = S.CARD_ELEVATED if is_dominant else S.CARD
+        
+        super().__init__(
+            content=ft.Row([
                 ft.Container(
-                    gradient=ft.LinearGradient(
-                        begin=ft.Alignment(-1,-1),
-                        end=ft.Alignment(1,1),
-                        colors=[S.CARD_SOFT, S.CARD]
-                    ),
-                    border_radius=S.RADIUS,
-                    expand=True,
+                    content=ft.Icon(ft.Icons.BUBBLE_CHART, color=color, size=24),
+                    bgcolor=ft.Colors.with_opacity(0.1, color),
+                    padding=8,
+                    border_radius=S.RADIUS_SMALL
                 ),
+                ft.Column([
+                    ft.Text(name, style=ft.TextStyle(size=16, weight=ft.FontWeight.W_600, color=S.TEXT_PRIMARY)),
+                    ft.Text(f"{value:.1f} {unit}", style=S.CAPTION)
+                ], spacing=2, expand=True),
                 ft.Container(
-                    content=ft.Text(label, style=S.CAPTION),
-                    alignment=ft.alignment.center,
+                    content=ft.Text("⚠️" if is_dominant else "✓", size=20),
+                    visible=is_dominant
                 )
-            ],
-            expand=True,
-        ),
-        padding=0,
-        expand=True,
-    )
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            bgcolor=bgcolor,
+            padding=16,
+            border_radius=S.RADIUS_SMALL,
+            border=ft.border.all(1, color) if is_dominant else None
+        )
+
+class StationCard(ft.Container):
+    """Monitoring Station Card"""
+    def __init__(self, name: str, aqi: int, location: str = ""):
+        color = S.get_aqi_color(aqi)
+        
+        super().__init__(
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(ft.Icons.LOCATION_ON, color=color, size=20),
+                    ft.Text(name, style=ft.TextStyle(size=15, weight=ft.FontWeight.W_600, color=S.TEXT_PRIMARY), expand=True)
+                ], spacing=8),
+                ft.Row([
+                    ft.Text(f"AQI: {aqi}", style=S.BODY),
+                    ft.Container(
+                        content=ft.Text(str(aqi), style=ft.TextStyle(size=12, weight=ft.FontWeight.BOLD, color=S.TEXT_PRIMARY)),
+                        bgcolor=color,
+                        padding=ft.padding.symmetric(8, 6),
+                        border_radius=S.RADIUS_SMALL
+                    )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Text(location, style=S.SMALL) if location else ft.Container()
+            ], spacing=6),
+            bgcolor=S.CARD,
+            padding=16,
+            border_radius=S.RADIUS_SMALL,
+            border=ft.border.all(1, ft.Colors.with_opacity(0.1, color))
+        )
+
+class InfoSection(ft.Container):
+    """Collapsible Information Section"""
+    def __init__(self, title: str, icon: str, color: str = S.PRIMARY):
+        self.title_text = ft.Text(title, style=S.H3)
+        self.content_column = ft.Column([], spacing=12)
+        self.is_expanded = True
+        
+        super().__init__(
+            content=ft.Column([
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(icon, color=color, size=24),
+                        self.title_text,
+                        ft.Container(expand=True),
+                        ft.IconButton(
+                            icon=ft.Icons.EXPAND_LESS,
+                            icon_color=S.TEXT_MUTED,
+                            on_click=self._toggle
+                        )
+                    ], spacing=12),
+                    on_click=self._toggle
+                ),
+                ft.Divider(height=1, color=S.TEXT_DISABLED),
+                self.content_column
+            ], spacing=12),
+            bgcolor=S.CARD,
+            padding=24,
+            border_radius=S.RADIUS,
+            shadow=S.SHADOW
+        )
+    
+    def _toggle(self, e):
+        self.is_expanded = not self.is_expanded
+        self.content_column.visible = self.is_expanded
+        self.update()
+    
+    def add_item(self, item: ft.Control):
+        self.content_column.controls.append(item)
+        self.update()
+    
+    def clear(self):
+        self.content_column.controls.clear()
+        self.update()
+
+class LoadingOverlay(ft.Container):
+    """Loading spinner overlay"""
+    def __init__(self):
+        super().__init__(
+            content=ft.Column([
+                ft.ProgressRing(color=S.PRIMARY, width=50, height=50),
+                ft.Text("Loading data...", style=S.BODY)
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=16),
+            alignment=ft.alignment.center,
+            visible=False,
+            bgcolor=ft.Colors.with_opacity(0.8, S.BG),
+            expand=True
+        )
+    
+    def show(self):
+        self.visible = True
+        self.update()
+    
+    def hide(self):
+        self.visible = False
+        self.update()
