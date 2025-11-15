@@ -9,14 +9,12 @@ import json
 load_dotenv()
 
 class AQIFetcher:
-    """Handles fetching AQI data from Indian Government data.gov.in APIs."""
     
     def __init__(self, api_url: str, api_key: str):
         self.api_url = api_url
         self.api_key = api_key
     
     def _safe_float_conversion(self, value, default=0.0):
-        """Safely convert a value to float, handling various string formats."""
         if value is None:
             return default
         
@@ -44,15 +42,6 @@ class AQIFetcher:
             return default
     
     def fetch_city_data(self, city_name: str) -> Optional[Dict]:
-        """
-        Fetches comprehensive AQI data for a city from data.gov.in API.
-        
-        Args:
-            city_name (str): Name of the city
-            
-        Returns:
-            Dict: Raw API response with all station data
-        """
         try:
             print(f"Fetching data for: {city_name}")
             
@@ -251,9 +240,6 @@ class AQIFetcher:
         return city_state_map.get(city_name.lower(), 'Unknown')
     
     def get_realtime_aqi(self, city_name: str) -> Optional[Dict]:
-        """
-        Get real-time AQI data for a city using data.gov.in API.
-        """
         return self.fetch_city_data(city_name)
     
     def process_station_data(self, records: List[Dict]) -> List[StationData]:
