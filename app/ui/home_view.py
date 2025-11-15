@@ -73,14 +73,8 @@ class HomeView(ft.View):
                             ),
                             
                             # Detailed Sections
-                            ft.Container(
-                                content=ft.Column([
-                                    self.pollutants_section,
-                                    self.stations_section,
-                                    self.recommendations_section,
-                                ], spacing=24),
-                                padding=32
-                            ),
+                            # Detailed sections are not rendered in the main layout by default.
+                            # They will be inserted into the AQI card after a successful search.
                             
                             # Quick Actions
                             ft.Container(
@@ -99,16 +93,6 @@ class HomeView(ft.View):
                                     ], spacing=16)
                                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                                 padding=ft.padding.symmetric(32, 32)
-                            ),
-                            
-                            # Footer
-                            ft.Container(
-                                content=ft.Column([
-                                    ft.Divider(color=S.TEXT_DISABLED),
-                                    ft.Text("Powered by Data.gov.in Open API", style=S.SMALL, text_align=ft.TextAlign.CENTER),
-                                    ft.Text("© 2025 AQI Monitor Pro", style=S.SMALL, text_align=ft.TextAlign.CENTER, color=S.TEXT_DISABLED),
-                                ], spacing=8),
-                                padding=ft.padding.only(32, 24, 32, 40)
                             )
                         ], spacing=0),
                         expand=True
@@ -173,16 +157,31 @@ class HomeView(ft.View):
             self.loading.hide()
     
     def _display_results(self, analysis, summary):
-        """Display comprehensive results"""
-        aqi = analysis['overall_aqi']
-        
-        # Update main AQI display
-        self.aqi_card.update_data(
-            aqi,
-            analysis['level'],
-            summary.city.get_name(),
-            "Just now"
-        )
+        msg = "HomeView._display_results: entering"
+        print(msg)
+        try:
+            with open(r".\app\debug_ui.log", "a", encoding="utf-8") as fh:
+                fh.write(msg + "\n")
+        except Exception:
+            pass
+        try:
+            aqi = analysis['overall_aqi']
+            
+            # Update main AQI display
+            self.aqi_card.update_data(
+                aqi,
+                analysis['level'],
+                summary.city.get_name(),
+                "Just now"
+            )
+        except Exception as ex:
+            print(f"HomeView._display_results: ERROR while updating AQI card: {ex}")
+            # still attempt to show a minimal summary and bail out
+            try:
+                self.aqi_card.set_summary(f"AQI: {analysis.get('overall_aqi', 'N/A')}")
+            except Exception:
+                pass
+            raise
         
         # Update metrics
         self.metrics.clear()
@@ -215,11 +214,75 @@ class HomeView(ft.View):
                     ft.Text(rec, style=S.BODY, expand=True)
                 ], spacing=12)
             )
-        
+
+        # debug: print counts of items prepared for each section
+        try:
+            p_count = len(self.pollutants_section.content_column.controls)
+            s_count = len(self.stations_section.content_column.controls)
+            r_count = len(self.recommendations_section.content_column.controls)
+            print(f"HomeView._display_results: prepared items -> pollutants={p_count}, stations={s_count}, recs={r_count}")
+        except Exception as ex:
+            print(f"HomeView._display_results: debug error counting items: {ex}")
+
+        # Place the three sections into the AQI card details area so they appear
+        # inside the rounded AQI card together.
+        # Build compact, fresh containers for the in-card display. Using
+        # simple containers avoids control reuse/mounting issues and keeps the
+        # AQI card layout predictable.
+        p_items = [
+            ft.Text("Pollutant Analysis", style=S.H3),
+            ft.Container(height=8)
+        ]
+        for c in list(self.pollutants_section.content_column.controls):
+            p_items.append(c)
+
+        p_container = ft.Container(
+            content=ft.Column(p_items, spacing=8),
+            bgcolor=S.CARD,
+            padding=16,
+            border_radius=S.RADIUS
+        )
+
+        s_items = [
+            ft.Text("Monitoring Stations", style=S.H3),
+            ft.Container(height=8)
+        ]
+        for c in list(self.stations_section.content_column.controls):
+            s_items.append(c)
+
+        s_container = ft.Container(
+            content=ft.Column(s_items, spacing=8),
+            bgcolor=S.CARD,
+            padding=16,
+            border_radius=S.RADIUS
+        )
+
+        r_items = [
+            ft.Text("Health Recommendations", style=S.H3),
+            ft.Container(height=8)
+        ]
+        for c in list(self.recommendations_section.content_column.controls):
+            r_items.append(c)
+
+        r_container = ft.Container(
+            content=ft.Column(r_items, spacing=8),
+            bgcolor=S.CARD,
+            padding=16,
+            border_radius=S.RADIUS
+        )
+
+        # set a short summary text as an immediate visual cue
+        try:
+            summary_line = f"Dominant: {analysis.get('dominant_pollutant', 'N/A')} · Stations: {len(summary.stations)} · AQI: {analysis.get('overall_aqi', '')}"
+            self.aqi_card.set_summary(summary_line)
+        except Exception:
+            pass
+
+        self.aqi_card.set_details([p_container, s_container, r_container])
+
         self.page.update()
     
     def _show_snackbar(self, message: str, color: str):
-        """Show snackbar notification"""
         self.page.snack_bar = ft.SnackBar(
             content=ft.Text(message, color=S.TEXT_PRIMARY),
             bgcolor=color

@@ -3,7 +3,6 @@ from .models import CityAQISummary, StationData, PollutantData
 import flet as ft
 
 class AQIAnalysis:
-    """Enhanced analysis with comprehensive AQI evaluation."""
     
     @staticmethod
     def display_summary(city, aqi_records: List):
@@ -11,9 +10,7 @@ class AQIAnalysis:
         print(f"AQI Summary for {city.get_name()}")
     
     def get_comprehensive_analysis(self, summary: CityAQISummary) -> Dict:
-        """
-        Provides comprehensive analysis of city AQI data.
-        """
+
         basic_analysis = self.get_aqi_analysis(summary.overall_aqi)
         
         return {
@@ -30,7 +27,6 @@ class AQIAnalysis:
         }
     
     def get_aqi_analysis(self, aqi_value: int) -> Dict:
-        """Enhanced AQI analysis with proper color mapping."""
         if aqi_value <= 50:
             return {
                 'level': 'Good',

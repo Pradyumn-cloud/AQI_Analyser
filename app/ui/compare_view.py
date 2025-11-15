@@ -53,9 +53,14 @@ class CompareView(ft.View):
         
         self.compare_btn = ft.Container(
             content=ft.Row([
-                ft.Icon(ft.Icons.COMPARE_ARROWS, color=S.TEXT_PRIMARY, size=20),
+                ft.Container(
+                    content=ft.Icon(ft.Icons.COMPARE_ARROWS, color=S.TEXT_PRIMARY, size=20),
+                    alignment=ft.alignment.center,
+                    height=24,
+                    width=24
+                ),
                 ft.Text("Compare", style=ft.TextStyle(size=16, weight=ft.FontWeight.W_600, color=S.TEXT_PRIMARY))
-            ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
+            ], alignment=ft.MainAxisAlignment.CENTER, vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
             gradient=S.GRADIENT_PRIMARY,
             padding=ft.padding.symmetric(32, 16),
             border_radius=S.RADIUS_SMALL,
