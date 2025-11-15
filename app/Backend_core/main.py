@@ -1,8 +1,4 @@
-# main.py
-"""
-The main entry point for the AQI monitoring application.
-It orchestrates the creation of objects and the flow of data.
-"""
+
 from . import config
 from .models import City
 from .fetcher import DataFetcher

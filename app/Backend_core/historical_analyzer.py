@@ -1,98 +1,190 @@
-# historical_analyzer.py
-"""
-Contains the HistoricalAnalyzer class for processing and visualizing
-historical AQI data. This version is adapted for GUI integration
-by returning plot data instead of saving files.
-"""
+# app/Backend_core/historical_analyzer.py
+from pathlib import Path
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import io
-import base64
-from typing import Dict, Optional
 
-from datetime import datetime
-from .models import AQIData
+# make plots look consistent
+sns.set(style="whitegrid")
 
 class HistoricalAnalyzer:
-    """Analyzes historical AQI data and returns plots as base64 strings."""
+    """
+    Loads the project's data CSV and generates the same analysis & plots
+    as your original analysis.py for a single city (no 7/14/30-day filtering).
+    Constructor signature matches your existing code: HistoricalAnalyzer(csv_filepath, plots_dir=None)
+    """
 
-    def __init__(self, csv_filepath: str):
-        """Initializes the analyzer by loading and preprocessing the dataset."""
-        try:
-            self.__df = pd.read_csv(csv_filepath)
-            self.__preprocess_data()
-        except FileNotFoundError:
-            self.__df = None
-
-    def __preprocess_data(self):
-        """Private method to perform initial data cleaning."""
-        if self.__df is None: return
-        self.__df['Datetime'] = pd.to_datetime(self.__df['Datetime'], errors='coerce')
-        pollutant_cols = ['PM2.5', 'PM10', 'NO2', 'CO', 'SO2', 'O3', 'AQI']
-        for col in pollutant_cols:
-            if col in self.__df.columns:
-                self.__df[col] = pd.to_numeric(self.__df[col], errors='coerce')
-
-    def analyze_city(self, city_name: str) -> Optional[Dict[str, str]]:
+    def __init__(self, csv_filepath, plots_dir: str = None):
         """
-        Runs analysis for a city and returns a dictionary of base64-encoded plots.
-        Returns None if the city or data is not found.
+        csv_filepath: path to data.csv relative to app/ (e.g. "data_analysis/Data/data.csv")
+        plots_dir: directory to save generated plots (relative to app/). Default: "assets/plots"
         """
-        if self.__df is None: return None
+        self.csv_filepath = Path(csv_filepath)
+        if plots_dir is None:
+            self.plots_dir = Path("assets") / "plots"
+        else:
+            self.plots_dir = Path(plots_dir)
+        self.plots_dir.mkdir(parents=True, exist_ok=True)
+        self._df = None
 
-        city_df = self.__df[self.__df['City'].str.lower() == city_name.lower()].copy()
-        if city_df.empty: return None
+        # pollutants list (same as analysis.py)
+        self.pollutants = [
+            'PM2.5', 'PM10', 'NO', 'NO2', 'NOx', 'NH3', 'CO', 'SO2',
+            'O3', 'Benzene', 'Toluene', 'Xylene'
+        ]
 
-        city_df.set_index('Datetime', inplace=True)
-        city_df.fillna(method='ffill', inplace=True)
+    def load_df(self):
+        if self._df is not None:
+            return self._df
 
-        plots = {
-            "trend": self._plot_monthly_aqi_trends(city_df, city_name),
-            "heatmap": self._plot_pollutant_heatmap(city_df, city_name),
-            "distribution": self._plot_aqi_distribution(city_df, city_name)
+        if not self.csv_filepath.exists():
+            raise FileNotFoundError(f"CSV not found: {self.csv_filepath}")
+
+        # load with low_memory=False to avoid DtypeWarning
+        df = pd.read_csv(self.csv_filepath, low_memory=False)
+
+        # ensure Datetime column
+        if 'Datetime' not in df.columns and 'Date' in df.columns:
+            df['Datetime'] = pd.to_datetime(df['Date'], errors='coerce')
+            if 'Hour' in df.columns:
+                df['Datetime'] += pd.to_timedelta(df['Hour'], unit='h')
+        else:
+            df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+
+        # normalize City column name
+        if 'City' not in df.columns and 'city' in df.columns:
+            df['City'] = df['city']
+
+        # ensure numeric pollutant columns exist (coerce to numeric)
+        for p in self.pollutants:
+            if p in df.columns:
+                df[p] = pd.to_numeric(df[p], errors='coerce')
+
+        self._df = df
+        return self._df
+
+    def _save_fig(self, fig, filename: str) -> str:
+        """
+        Save matplotlib figure to plots_dir and return a relative path string
+        relative to assets directory, e.g. "plots/city_yearly.png"
+        """
+        out_path = self.plots_dir / filename
+        fig.savefig(out_path, dpi=180, bbox_inches='tight')
+        plt.close(fig)
+        # return path relative to assets folder so Flet can load using assets_dir="assets"
+        rel = Path("plots") / filename
+        return str(rel)
+
+    def generate_city_analysis(self, city: str):
+        """
+        Perform the same analysis as analysis.py for the given city.
+        Returns dict:
+            {
+              'city': city,
+              'yearly_path': 'plots/..png',
+              'monthly_path': ...,
+              'hourly_path': ...,
+              'most_toxic_path': ...,
+              'heatmap_path': ...,
+              'peak_months': {...},
+              'best_month': int,
+              'worst_month': int,
+              'avg_pollutants': {pollutant: avg_value, ...}
+            }
+        """
+        city = str(city).strip()
+        df = self.load_df()
+
+        # filter city (case-insensitive contains fallback)
+        city_df = df[df['City'].str.lower() == city.lower()].copy() if 'City' in df.columns else pd.DataFrame()
+        if city_df.empty and 'City' in df.columns:
+            city_df = df[df['City'].str.lower().str.contains(city.lower(), na=False)].copy()
+
+        if city_df.empty:
+            return None
+
+        # forward fill for missing values as original script did
+        city_df = city_df.sort_values('Datetime').ffill()
+
+        # YEARLY trend
+        if 'Year' not in city_df.columns:
+            city_df['Year'] = city_df['Datetime'].dt.year
+        yearly = city_df.groupby('Year')[self.pollutants].mean()
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.lineplot(data=yearly, ax=ax)
+        ax.set_title(f'Yearly Trend of Pollutants in {city.title()}')
+        ax.set_ylabel('Average Concentration')
+        yearly_path = self._save_fig(fig, f"{city}_yearly.png")
+
+        # MONTHLY trend and best/worst month
+        if 'Month' not in city_df.columns:
+            city_df['Month'] = city_df['Datetime'].dt.month
+        monthly = city_df.groupby('Month')[self.pollutants].mean()
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.lineplot(data=monthly, ax=ax)
+        ax.set_title(f'Monthly Average Pollutants in {city.title()}')
+        monthly_path = self._save_fig(fig, f"{city}_monthly.png")
+
+        # best & worst month (by average of pollutants)
+        with np.errstate(all='ignore'):
+            monthly_mean = monthly.mean(axis=1)
+            best_month = int(monthly_mean.idxmin()) if not monthly_mean.empty else None
+            worst_month = int(monthly_mean.idxmax()) if not monthly_mean.empty else None
+
+        # HOURLY pattern
+        if 'Hour' not in city_df.columns:
+            city_df['Hour'] = city_df['Datetime'].dt.hour
+        hourly = city_df.groupby('Hour')[self.pollutants].mean()
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.lineplot(data=hourly, ax=ax)
+        ax.set_title(f'Hourly Pollution Pattern in {city.title()}')
+        hourly_path = self._save_fig(fig, f"{city}_hourly.png")
+
+        # MOST TOXIC pollutant (5-year average equivalent: mean across dataset for that city)
+        avg_pollutants = city_df[self.pollutants].mean().sort_values(ascending=False)
+        # bar plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=avg_pollutants.index, y=avg_pollutants.values, ax=ax)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+        ax.set_title(f'Most Toxic Pollutants in {city.title()} (Average)')
+        most_toxic_path = self._save_fig(fig, f"{city}_most_toxic.png")
+
+        most_toxic_overall = avg_pollutants.index[0] if not avg_pollutants.empty else None
+
+        # Peak month for each pollutant
+        peak_months = {}
+        for p in self.pollutants:
+            if p in monthly.columns:
+                try:
+                    peak_months[p] = int(monthly[p].idxmax())
+                except Exception:
+                    peak_months[p] = None
+
+        # Correlation heatmap
+        corr_cols = [p for p in self.pollutants if p in city_df.columns]
+        heatmap_path = None
+        if len(corr_cols) >= 2:
+            corr = city_df[corr_cols].corr()
+            fig, ax = plt.subplots(figsize=(10, 8))
+            sns.heatmap(corr, annot=True, cmap='coolwarm', ax=ax, fmt='.2f')
+            ax.set_title(f'Correlation between Pollutants in {city.title()}')
+            heatmap_path = self._save_fig(fig, f"{city}_heatmap.png")
+
+        result = {
+            'city': city,
+            'yearly_path': yearly_path,
+            'monthly_path': monthly_path,
+            'hourly_path': hourly_path,
+            'most_toxic_path': most_toxic_path,
+            'heatmap_path': heatmap_path,
+            'peak_months': peak_months,
+            'best_month': best_month,
+            'worst_month': worst_month,
+            'most_toxic_overall': str(most_toxic_overall) if most_toxic_overall is not None else None,
+            'avg_pollutants': avg_pollutants.fillna(0).to_dict()
         }
-        return plots
-
-    def _generate_plot_base64(self) -> str:
-        """Helper method to convert a matplotlib plot to a base64 string."""
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        buf.seek(0)
-        img_str = base64.b64encode(buf.read()).decode('utf-8')
-        plt.close()
-        return img_str
-
-    def _plot_monthly_aqi_trends(self, df: pd.DataFrame, city_name: str) -> str:
-        """Plots monthly AQI trends and returns as base64 string."""
-        monthly_avg_aqi = df['AQI'].resample('M').mean()
-        plt.style.use('seaborn-v0_8-whitegrid')
-        plt.figure(figsize=(10, 5))
-        monthly_avg_aqi.plot(color='royalblue', lw=2)
-        plt.title(f'Monthly Average AQI Trend in {city_name.title()}', fontsize=14)
-        plt.xlabel('Year')
-        plt.ylabel('Average AQI')
-        return self._generate_plot_base64()
-
-    def _plot_pollutant_heatmap(self, df: pd.DataFrame, city_name: str) -> str:
-        """Creates a pollutant correlation heatmap and returns as base64 string."""
-        pollutants = ['PM2.5', 'PM10', 'NO2', 'SO2', 'CO', 'O3', 'AQI']
-        valid_pollutants = [p for p in pollutants if p in df.columns]
-        correlation_matrix = df[valid_pollutants].corr()
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
-        plt.title(f'Pollutant Correlation for {city_name.title()}', fontsize=14)
-        return self._generate_plot_base64()
-
-    def _plot_aqi_distribution(self, df: pd.DataFrame, city_name: str) -> str:
-        """Plots AQI distribution and returns as base64 string."""
-        plt.figure(figsize=(10, 5))
-        sns.histplot(df['AQI'].dropna(), kde=True, color='forestgreen', bins=50)
-        plt.axvline(50, color='lime', linestyle='--', label='Good')
-        plt.axvline(100, color='gold', linestyle='--', label='Satisfactory')
-        plt.axvline(200, color='orange', linestyle='--', label='Moderate')
-        plt.title(f'Distribution of AQI Values in {city_name.title()}', fontsize=14)
-        plt.xlabel('AQI Value')
-        plt.ylabel('Frequency')
-        plt.legend()
-        return self._generate_plot_base64()
+        return result

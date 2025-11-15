@@ -9,14 +9,12 @@ import json
 load_dotenv()
 
 class AQIFetcher:
-    """Handles fetching AQI data from Indian Government data.gov.in APIs."""
-    
+
     def __init__(self, api_url: str, api_key: str):
         self.api_url = api_url
         self.api_key = api_key
     
     def _safe_float_conversion(self, value, default=0.0):
-        """Safely convert a value to float, handling various string formats."""
         if value is None:
             return default
         
@@ -369,7 +367,6 @@ class AQIFetcher:
             return None
     
     def _calculate_overall_aqi(self, stations: List[StationData]) -> int:
-        """Calculate overall AQI from station data using Indian AQI standards."""
         if not stations:
             return 50  # Default safe value
         

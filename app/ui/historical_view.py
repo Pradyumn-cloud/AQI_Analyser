@@ -1,280 +1,151 @@
+# app/ui/historical_view.py
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import seaborn as sns
 import flet as ft
+from pathlib import Path
 from Backend_core.historical_analyzer import HistoricalAnalyzer
-from Backend_core.config import API_URL, API_KEY
-from assets import styles as S
-from ui.components import NavBar, LoadingOverlay
+
+ASSETS_PLOTS_DIR = Path("assets") / "plots"
 
 class HistoricalView(ft.View):
-    """Professional Historical Data View"""
-    
     def __init__(self, page: ft.Page):
-        super().__init__(
-            route="/historical",
-            padding=0,
-            scroll=ft.ScrollMode.AUTO,
-            bgcolor=S.BG
-        )
+        super().__init__(route="/historical")
         self.page = page
-        self.analyzer = HistoricalAnalyzer(API_URL, API_KEY)
         
-        self._init_components()
-        self._build_layout()
-    
-    def _init_components(self):
-        """Initialize components"""
-        self.navbar = NavBar(self.page, "Historical Analysis")
-        self.loading = LoadingOverlay()
-        
-        # Search inputs
-        self.city_input = ft.TextField(
-            hint_text="City name",
-            border_color=S.PRIMARY,
-            text_style=ft.TextStyle(color=S.TEXT_PRIMARY),
-            bgcolor=S.CARD,
-            border_radius=S.RADIUS_SMALL,
-            prefix_icon=ft.Icons.LOCATION_CITY,
-            height=56
-        )
-        
-        self.days_dropdown = ft.Dropdown(
-            hint_text="Select period",
-            options=[
-                ft.dropdown.Option("7", "Last 7 days"),
-                ft.dropdown.Option("14", "Last 14 days"),
-                ft.dropdown.Option("30", "Last 30 days"),
-            ],
-            value="7",
-            border_color=S.PRIMARY,
-            text_style=ft.TextStyle(color=S.TEXT_PRIMARY),
-            bgcolor=S.CARD,
-            border_radius=S.RADIUS_SMALL,
-            height=56
-        )
-        
-        self.analyze_btn = ft.Container(
+        # Set assets directory for the page
+        if not hasattr(page, 'assets_dir') or page.assets_dir is None:
+            page.assets_dir = "assets"
+
+        # Instantiate analyzer with the CSV path relative to app/
+        # Adjust the csv path if your data lives elsewhere.
+        self.analyzer = HistoricalAnalyzer(csv_filepath="data_analysis/Data/data.csv")
+
+        # UI components
+        self.city_input = ft.TextField(label="City", hint_text="Enter city name", expand=True)
+        self.analyze_btn = ft.ElevatedButton("Analyze", on_click=self.run_analysis)
+        self.results = ft.Column([], spacing=16, scroll=ft.ScrollMode.AUTO)
+        self.snackbar = ft.SnackBar(content=ft.Text(""))
+
+        self.build()
+
+    def build(self):
+        self.controls.clear()
+        header = ft.Container(
             content=ft.Row([
-                ft.Icon(ft.Icons.ANALYTICS, color=S.TEXT_PRIMARY, size=20),
-                ft.Text("Analyze", style=ft.TextStyle(size=16, weight=ft.FontWeight.W_600, color=S.TEXT_PRIMARY))
-            ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
-            gradient=S.GRADIENT_PRIMARY,
-            padding=ft.padding.symmetric(24, 16),
-            border_radius=S.RADIUS_SMALL,
-            on_click=self._analyze_historical,
-            ink=True,
-            height=56
+                ft.Text("Historical Analysis (City-wise)", style=ft.TextStyle(size=20, weight=ft.FontWeight.BOLD)),
+            ], alignment=ft.MainAxisAlignment.CENTER),
+            padding=12
         )
-        
-        # Results display
-        self.results_container = ft.Column([], spacing=24)
-    
-    def _build_layout(self):
-        """Build layout"""
-        self.controls = [
-            ft.Stack([
-                ft.Column([
-                    self.navbar,
-                    
-                    ft.Container(
-                        content=ft.Column([
-                            # Header
-                            ft.Container(
-                                content=ft.Column([
-                                    ft.Text("Historical Trends", style=S.TITLE, text_align=ft.TextAlign.CENTER),
-                                    ft.Text("Analyze air quality trends over time", style=S.BODY, text_align=ft.TextAlign.CENTER, color=S.TEXT_MUTED),
-                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                                padding=ft.padding.symmetric(32, 40)
-                            ),
-                            
-                            # Search Section
-                            ft.Container(
-                                content=ft.ResponsiveRow([
-                                    ft.Container(self.city_input, col={"sm": 12, "md": 5}),
-                                    ft.Container(self.days_dropdown, col={"sm": 12, "md": 4}),
-                                    ft.Container(self.analyze_btn, col={"sm": 12, "md": 3}),
-                                ], spacing=16),
-                                padding=ft.padding.symmetric(32, 0)
-                            ),
-                            
-                            # Results
-                            ft.Container(
-                                content=self.results_container,
-                                padding=32
-                            ),
-                        ], spacing=0),
-                        expand=True
-                    )
-                ], spacing=0),
-                self.loading
-            ], expand=True)
-        ]
-    
-    def _analyze_historical(self, e):
-        """Analyze historical data"""
-        city = self.city_input.value.strip()
-        days = int(self.days_dropdown.value)
-        
+
+        search_row = ft.Row([self.city_input, self.analyze_btn], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
+        self.controls.append(
+            ft.Column([
+                header,
+                search_row,
+                ft.Divider(),
+                self.results
+            ], spacing=20, expand=True, scroll=ft.ScrollMode.AUTO)
+        )
+
+    def run_analysis(self, e):
+        city = (self.city_input.value or "").strip()
         if not city:
-            self._show_snackbar("Please enter a city name", S.ERROR)
+            self.page.snack_bar = ft.SnackBar(ft.Text("Please enter a city name"))
+            self.page.snack_bar.open = True
+            self.page.update()
             return
-        
-        self.loading.show()
-        
-        try:
-            analysis = self.analyzer.get_trend_analysis(city, days)
-            if analysis:
-                self._display_results(analysis, city, days)
-            else:
-                self._show_snackbar(f"No historical data found for {city}", S.ERROR)
-        except Exception as ex:
-            self._show_snackbar(f"Error: {str(ex)}", S.ERROR)
-        finally:
-            self.loading.hide()
-    
-    def _display_results(self, analysis, city: str, days: int):
-        """Display historical analysis results"""
-        self.results_container.controls.clear()
-        
-        # Summary Card
-        trend_icon = ft.Icons.TRENDING_UP if analysis['trend'] == 'improving' else ft.Icons.TRENDING_DOWN
-        trend_color = S.SUCCESS if analysis['trend'] == 'improving' else S.ERROR
-        
-        self.results_container.controls.append(
-            S.gradient_card(
-                ft.Column([
-                    ft.Text(f"{city.title()} - {days} Day Analysis", style=S.H2, text_align=ft.TextAlign.CENTER),
-                    ft.Container(height=16),
-                    ft.Row([
-                        ft.Column([
-                            ft.Text("Average AQI", style=S.CAPTION),
-                            ft.Text(str(analysis['avg_aqi']), style=S.H1, color=S.get_aqi_color(analysis['avg_aqi'])),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
-                        ft.Column([
-                            ft.Text("Trend", style=S.CAPTION),
-                            ft.Row([
-                                ft.Icon(trend_icon, color=trend_color, size=32),
-                                ft.Text(analysis['trend'].title(), style=S.H3, color=trend_color),
-                            ], spacing=8),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
-                    ]),
-                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                gradient=S.GRADIENT_DARK,
-                padding=32
-            )
-        )
-        
-        # Statistics Grid
-        stats_row = ft.ResponsiveRow([
-            ft.Container(
-                S.card(
-                    ft.Column([
-                        ft.Icon(ft.Icons.ARROW_UPWARD, color=S.ERROR, size=32),
-                        ft.Text("Maximum AQI", style=S.CAPTION),
-                        ft.Text(str(analysis['max_aqi']), style=S.H2),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                    padding=24
-                ),
-                col={"sm": 12, "md": 4}
-            ),
-            ft.Container(
-                S.card(
-                    ft.Column([
-                        ft.Icon(ft.Icons.ARROW_DOWNWARD, color=S.SUCCESS, size=32),
-                        ft.Text("Minimum AQI", style=S.CAPTION),
-                        ft.Text(str(analysis['min_aqi']), style=S.H2),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                    padding=24
-                ),
-                col={"sm": 12, "md": 4}
-            ),
-            ft.Container(
-                S.card(
-                    ft.Column([
-                        ft.Icon(ft.Icons.TRENDING_FLAT, color=S.INFO, size=32),
-                        ft.Text("Data Points", style=S.CAPTION),
-                        ft.Text(str(len(analysis.get('daily_data', []))), style=S.H2),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                    padding=24
-                ),
-                col={"sm": 12, "md": 4}
-            ),
-        ], spacing=16)
-        
-        self.results_container.controls.append(stats_row)
-        
-        # Daily Breakdown
-        if 'daily_data' in analysis and analysis['daily_data']:
-            daily_card = S.card(
-                ft.Column([
-                    ft.Text("Daily Breakdown", style=S.H3),
-                    ft.Divider(color=S.TEXT_DISABLED),
-                    ft.Column([
-                        self._daily_row(day['date'], day['aqi'])
-                        for day in analysis['daily_data'][:10]  # Show last 10 days
-                    ], spacing=8)
-                ], spacing=16),
-                padding=24,
-                elevated=True
-            )
-            self.results_container.controls.append(daily_card)
-        
-        # Dominant Pollutants
-        if 'pollutant_trends' in analysis:
-            pollutant_card = S.card(
-                ft.Column([
-                    ft.Text("Pollutant Trends", style=S.H3),
-                    ft.Divider(color=S.TEXT_DISABLED),
-                    ft.Column([
-                        self._pollutant_row(name, data)
-                        for name, data in analysis['pollutant_trends'].items()
-                    ], spacing=12)
-                ], spacing=16),
-                padding=24,
-                elevated=True
-            )
-            self.results_container.controls.append(pollutant_card)
-        
+
+        # Clear previous results
+        self.results.controls.clear()
         self.page.update()
-    
-    def _daily_row(self, date: str, aqi: int):
-        """Create daily data row"""
-        return ft.Container(
-            content=ft.Row([
-                ft.Text(date, style=S.BODY, expand=True),
-                ft.Container(
-                    content=ft.Text(str(aqi), style=ft.TextStyle(size=14, weight=ft.FontWeight.BOLD, color=S.TEXT_PRIMARY)),
-                    bgcolor=S.get_aqi_color(aqi),
-                    padding=ft.padding.symmetric(12, 8),
-                    border_radius=S.RADIUS_SMALL
-                )
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            bgcolor=S.CARD_SOFT,
-            padding=12,
-            border_radius=S.RADIUS_SMALL
+
+        try:
+            analysis = self.analyzer.generate_city_analysis(city)
+        except FileNotFoundError as ex:
+            self.page.snack_bar = ft.SnackBar(ft.Text(str(ex)))
+            self.page.snack_bar.open = True
+            self.page.update()
+            return
+        except Exception as ex:
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Error during analysis: {ex}"))
+            self.page.snack_bar.open = True
+            self.page.update()
+            return
+
+        if not analysis:
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"No data found for city: {city}"))
+            self.page.snack_bar.open = True
+            self.page.update()
+            return
+
+        # Summary info
+        self.results.controls.append(
+            ft.Column([
+                ft.Text(f"Results for {analysis['city'].title()}", style=ft.TextStyle(size=18, weight=ft.FontWeight.BOLD)),
+                ft.Row([
+                    ft.Column([ft.Text("Best Month"), ft.Text(str(analysis.get('best_month')))]),
+                    ft.Column([ft.Text("Worst Month"), ft.Text(str(analysis.get('worst_month')))]),
+                    ft.Column([ft.Text("Most toxic pollutant"), ft.Text(str(analysis.get('most_toxic_overall')))]),
+                ], alignment=ft.MainAxisAlignment.SPACE_AROUND)
+            ], spacing=12)
         )
-    
-    def _pollutant_row(self, name: str, data: dict):
-        """Create pollutant trend row"""
-        avg = data.get('avg', 0)
-        trend = data.get('trend', 'stable')
-        trend_icon = ft.Icons.TRENDING_UP if trend == 'increasing' else ft.Icons.TRENDING_DOWN if trend == 'decreasing' else ft.Icons.TRENDING_FLAT
-        trend_color = S.ERROR if trend == 'increasing' else S.SUCCESS if trend == 'decreasing' else S.INFO
+
+        # Show plots if present; the analyzer saved them under assets/plots and returned paths like 'plots/xxx.png'
+        image_keys = [
+            ('Yearly Trend', analysis.get('yearly_path')),
+            ('Monthly Trend', analysis.get('monthly_path')),
+            ('Hourly Pattern', analysis.get('hourly_path')),
+            ('Most Toxic Pollutants', analysis.get('most_toxic_path')),
+            ('Correlation Heatmap', analysis.get('heatmap_path')),
+        ]
         
-        return ft.Container(
-            content=ft.Row([
-                ft.Text(name, style=S.BODY, expand=True),
-                ft.Text(f"{avg:.1f} µg/m³", style=S.CAPTION),
-                ft.Icon(trend_icon, color=trend_color, size=20)
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            bgcolor=S.CARD_SOFT,
-            padding=16,
-            border_radius=S.RADIUS_SMALL
-        )
-    
-    def _show_snackbar(self, message: str, color: str):
-        """Show snackbar"""
-        self.page.snack_bar = ft.SnackBar(
-            content=ft.Text(message, color=S.TEXT_PRIMARY),
-            bgcolor=color
-        )
-        self.page.snack_bar.open = True
+        # --- TABS FOR 5 PLOTS ---
+        tabs = []
+        for title, relpath in image_keys:
+            if relpath:
+                tab = ft.Tab(
+                    text=title,
+                    content=ft.Container(
+                        content=ft.Image(
+                            src=relpath,
+                            width=800,
+                            height=500,
+                            fit=ft.ImageFit.CONTAIN,
+                            error_content=ft.Text(f"Failed to load: {relpath}")
+                        ),
+                        padding=20,
+                        alignment=ft.alignment.center
+                    )
+                )
+                tabs.append(tab)
+
+        if tabs:
+            self.results.controls.append(
+                ft.Container(
+                    content=ft.Tabs(
+                        tabs=tabs,
+                        selected_index=0,
+                        expand=False
+                    ),
+                    height=600
+                )
+            )
+
+        # Show peak months table
+        peak = analysis.get('peak_months', {})
+        if peak:
+            rows = []
+            for p, m in peak.items():
+                rows.append(ft.Row([ft.Text(p), ft.Text(str(m))], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
+            self.results.controls.append(ft.Card(content=ft.Column([ft.Text("Peak month per pollutant"), ft.Divider()] + rows), elevation=1))
+
+        # Show average pollutant values
+        avg = analysis.get('avg_pollutants', {})
+        if avg:
+            avg_rows = [ft.Row([ft.Text(k), ft.Text(f"{v:.2f}")], alignment=ft.MainAxisAlignment.SPACE_BETWEEN) for k, v in avg.items()]
+            self.results.controls.append(ft.Card(content=ft.Column([ft.Text("Average pollutant concentrations (city)"), ft.Divider()] + avg_rows), elevation=1))
+
         self.page.update()
