@@ -132,4 +132,18 @@ db.sqlite3-journal
 instance/
 .webassets-cache
 
-#
+# Generated plots
+plots/
+**/plots/
+*.png
+*.jpg
+*.jpeg
+
+# Data files
+*.csv
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
