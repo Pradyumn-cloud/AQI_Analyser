@@ -5,7 +5,6 @@ import flet as ft
 from assets import styles as S
 
 class Backdrop:
-    """Abstract backdrop."""
     def __init__(self, page: ft.Page):
         self.page = page
         self.stack = ft.Stack(expand=False, height=180)
@@ -26,7 +25,6 @@ class Backdrop:
     def stop(self):
         self._running = False
 
-# ---------- Clear sky with few floating clouds ----------
 class ClearSkyBackdrop(Backdrop):
     def __init__(self, page: ft.Page):
         super().__init__(page)
@@ -69,7 +67,6 @@ class ClearSkyBackdrop(Backdrop):
                 c.update()
             await asyncio.sleep(0.03)
 
-# ---------- Dusty wind for poor AQI ----------
 class DustyBackdrop(Backdrop):
     def __init__(self, page: ft.Page):
         super().__init__(page)

@@ -5,7 +5,6 @@ from ui.historical_view import HistoricalView
 from assets import styles as S
 
 def main(page: ft.Page):
-    """Main application entry point"""
     # Configure page
     page.title = "AQI Monitor Pro - Professional Air Quality Dashboard"
     page.theme_mode = ft.ThemeMode.DARK

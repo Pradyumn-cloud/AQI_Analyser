@@ -108,6 +108,16 @@ class AQICard(ft.Container):
                 ], horizontal_alignment=ft.CrossAxisAlignment.END)
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         ])
+        # Small inline summary (visible in data view) as a fallback if details
+        # don't render for some reason.
+        self.summary_text = ft.Text("", style=S.BODY)
+        # append below the main data row inside data_column
+        self.data_column.controls.append(ft.Container(height=8))
+        self.data_column.controls.append(self.summary_text)
+
+        # Details column will hold pollutant / stations / recommendations
+        self.details_column = ft.Column([], spacing=12)
+        self.details_column.visible = False
 
         # Placeholder shown initially
         placeholder_text = "Hi there! 😄 Type the city name and click the search button."
@@ -127,7 +137,8 @@ class AQICard(ft.Container):
         super().__init__(
             content=ft.Column([
                 self.placeholder,
-                self.data_column
+                self.data_column,
+                self.details_column
             ]),
             gradient=S.GRADIENT_DARK,
             padding=32,
@@ -156,6 +167,8 @@ class AQICard(ft.Container):
         self.placeholder_text.value = f"No data found for {city.title()}"
         self.placeholder.visible = True
         self.data_column.visible = False
+        # hide details if previously set
+        self.clear_details()
         # reset any data controls
         self.aqi_value.value = "--"
         self.aqi_level.value = ""
@@ -163,6 +176,11 @@ class AQICard(ft.Container):
         self.badge.content = ft.Container()
         self.last_updated.value = ""
         self.gradient = S.GRADIENT_DARK
+        # clear summary/details
+        try:
+            self.summary_text.value = ""
+        except Exception:
+            pass
         self.update()
 
     def update_data(self, aqi: int, level: str, city: str, timestamp: str = "Just now"):
@@ -170,12 +188,106 @@ class AQICard(ft.Container):
         self.placeholder.visible = False
         self.data_column.visible = True
 
-        self.aqi_value.value = str(aqi)
-        self.aqi_level.value = level
-        self.city_name.value = city.title()
-        self.badge.content = S.aqi_badge(level, aqi)
-        self.last_updated.value = f"Updated: {timestamp}"
-        self.gradient = S.get_aqi_gradient(aqi)
+        # debug: inspect key controls before updating
+        try:
+            msg = f"AQICard.update_data: badge={repr(self.badge)}, aqi_value={repr(self.aqi_value)}, city_name={repr(self.city_name)}"
+            print(msg)
+            try:
+                with open(r".\app\debug_ui.log", "a", encoding="utf-8") as fh:
+                    fh.write(msg + "\n")
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        try:
+            self.aqi_value.value = str(aqi)
+            self.aqi_level.value = level
+            self.city_name.value = city.title()
+            # set badge content (may be None)
+            try:
+                badge_control = S.aqi_badge(level, aqi)
+            except Exception as ex:
+                badge_control = None
+                print(f"AQICard.update_data: S.aqi_badge raised: {ex}")
+            # protect if badge container missing
+            if self.badge is None:
+                print("AQICard.update_data: WARNING - self.badge is None; creating new Container")
+                self.badge = ft.Container()
+            try:
+                self.badge.content = badge_control
+            except Exception as ex:
+                print(f"AQICard.update_data: error setting badge.content: {ex}")
+            self.last_updated.value = f"Updated: {timestamp}"
+            self.gradient = S.get_aqi_gradient(aqi)
+            try:
+                self.update()
+            except Exception:
+                pass
+        except Exception as ex:
+            print(f"AQICard.update_data: exception: {ex}")
+
+    def set_summary(self, text: str):
+        try:
+            self.summary_text.value = text
+            # ensure visible even if empty initially
+            self.update()
+        except AssertionError:
+            # not mounted yet; set value only
+            self.summary_text.value = text
+
+    def set_details(self, controls: list):
+        """Place additional detail controls (sections) under the AQI data."""
+        # debug
+        try:
+            titles = []
+            for c in controls:
+                t = getattr(c, 'title_text', None)
+                titles.append(t.value if t is not None else repr(c))
+            msg = f"AQICard.set_details: adding {len(controls)} controls -> {titles}"
+            print(msg)
+            try:
+                with open(r".\app\debug_ui.log", "a", encoding="utf-8") as fh:
+                    fh.write(msg + "\n")
+            except Exception:
+                pass
+        except Exception as ex:
+            msg = f"AQICard.set_details: debug error: {ex}"
+            print(msg)
+            try:
+                with open(r".\app\debug_ui.log", "a", encoding="utf-8") as fh:
+                    fh.write(msg + "\n")
+            except Exception:
+                pass
+
+        # replace current details with a clearly visible wrapped layout
+        self.details_column.controls.clear()
+        # Add a divider to separate AQI data and details
+        self.details_column.controls.append(ft.Divider(height=1, color=ft.Colors.with_opacity(0.12, S.TEXT_PRIMARY)))
+
+        # If we have a city name available, show a small heading
+        try:
+            city = getattr(self.city_name, 'value', None)
+        except Exception:
+            city = None
+        if city:
+            self.details_column.controls.append(ft.Text(f"Details for {city}", style=S.H4))
+
+        for c in controls:
+            # ensure each control is boxed so it stands out inside the card
+            box = ft.Container(content=c, bgcolor=ft.Colors.with_opacity(0.03, S.TEXT_PRIMARY), padding=12, border_radius=S.RADIUS_SMALL, margin=ft.margin.only(top=8))
+            self.details_column.controls.append(box)
+
+        self.details_column.visible = True if controls else False
+        try:
+            self.update()
+        except AssertionError:
+            # If the AQICard is not yet added to a page, skip immediate update.
+            pass
+
+    def clear_details(self):
+        self.details_column.controls.clear()
+        self.details_column.visible = False
         self.update()
 
 class MetricGrid(ft.Container):
@@ -291,15 +403,28 @@ class InfoSection(ft.Container):
     def _toggle(self, e):
         self.is_expanded = not self.is_expanded
         self.content_column.visible = self.is_expanded
-        self.update()
+        try:
+            self.update()
+        except AssertionError:
+            # Control might not be added to a page yet during initialization;
+            # defer visual update until it is mounted.
+            pass
     
     def add_item(self, item: ft.Control):
         self.content_column.controls.append(item)
-        self.update()
+        try:
+            self.update()
+        except AssertionError:
+            # It's valid to create and populate an InfoSection before it's
+            # attached to the page; skip forced update in that case.
+            pass
     
     def clear(self):
         self.content_column.controls.clear()
-        self.update()
+        try:
+            self.update()
+        except AssertionError:
+            pass
 
 class LoadingOverlay(ft.Container):
     """Loading spinner overlay"""

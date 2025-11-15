@@ -9,6 +9,9 @@ class AQIAnalysis:
         print(f"AQI Summary for {city.get_name()}")
     
     def get_comprehensive_analysis(self, summary: CityAQISummary) -> Dict:
+        """
+        Provides comprehensive analysis of city AQI data.
+        """
         basic_analysis = self.get_aqi_analysis(summary.overall_aqi)
         
         return {
