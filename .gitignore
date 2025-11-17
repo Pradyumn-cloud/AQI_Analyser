@@ -1,170 +1,56 @@
-# Byte-compiled / cache
+# Python bytecode / caches
 __pycache__/
 *.py[cod]
-*.pyc
+*.pyo
+*$py.class
 
-# Data files (ignore all CSVs and large local datasets)
-*.csv
-Data/
-data/
-
-# Logs and debug
-*.log
-app/debug_ui.log
-
-# Virtual environments
+# Virtual envs
 venv/
 .venv/
 env/
+ENV/
 
-# Editor directories
+# Local env files
+.env
+.env.*
+
+# Flet / runtime artifacts & logs
+*.log
+app/debug_ui.log
+
+# Editor / IDE
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Archives/build
+# Build / packaging
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+*.whl
 *.zip
-dist/
-build/
 
-# Misc
-.env
-.env.*
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
+# Testing / coverage
 .pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-## Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
 coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
+.coverage
+htmlcov/
 
-# Translations
-*.mo
-*.pot
+# Type / lint caches
+.mypy_cache/
+.python-version
+.ropeproject/
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# Optional: temporary / editor files
+*.swp
+*~
 
-# Flask stuff:
-instance/
-.webassets-cache
-
-#
+*.csv
+Data/
+data/
