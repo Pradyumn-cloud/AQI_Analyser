@@ -50,13 +50,15 @@ GRADIENT_AQI_GOOD = ft.LinearGradient(
 GRADIENT_AQI_MODERATE = ft.LinearGradient(
     begin=ft.alignment.top_left,
     end=ft.alignment.bottom_right,
-    colors=["#F59E0B", "#D97706"]
+    # Use a blue-teal gradient to better match the app's primary theme
+    colors=["#06B6D4", "#6366F1"]
 )
 
 GRADIENT_AQI_POOR = ft.LinearGradient(
     begin=ft.alignment.top_left,
     end=ft.alignment.bottom_right,
-    colors=["#EF4444", "#DC2626"]
+    # Use a deeper blue / indigo gradient (still noticeable but complementary)
+    colors=["#4F46E5", "#0EA5E9"]
 )
 
 GRADIENT_DARK = ft.LinearGradient(

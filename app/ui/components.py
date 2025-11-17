@@ -3,13 +3,13 @@ from assets import styles as S
 
 class NavBar(ft.Container):
     """Professional Navigation Bar"""
-    def __init__(self, page: ft.Page, title: str = "AQI Monitor Pro"):
+    def __init__(self, page: ft.Page, title: str = "AQI Analyser"):
         self.page = page
         
         super().__init__(
             content=ft.Row([
                 ft.Row([
-                    ft.Icon(ft.Icons.AIR, color=S.PRIMARY, size=32),
+                    ft.Image(src="project_logo-Photoroom.png", width=36, height=36),
                     ft.Text(title, style=S.H3),
                 ], spacing=12),
                 ft.Row([
@@ -295,7 +295,7 @@ class MetricGrid(ft.Container):
     def __init__(self):
         self.metrics = []
         super().__init__(
-            content=ft.ResponsiveRow([], spacing=16),
+            content=ft.ResponsiveRow([], spacing=16, alignment=ft.MainAxisAlignment.CENTER),
             padding=0
         )
     

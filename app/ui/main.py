@@ -6,7 +6,7 @@ from assets import styles as S
 
 def main(page: ft.Page):
     # Configure page
-    page.title = "AQI Monitor Pro - Professional Air Quality Dashboard"
+    page.title = "AQI Analyser - Air Quality Dashboard"
     page.theme_mode = ft.ThemeMode.DARK
     page.bgcolor = S.BG
     page.padding = 0
@@ -20,6 +20,8 @@ def main(page: ft.Page):
         color_scheme_seed=S.PRIMARY,
         use_material3=True,
     )
+    # Ensure Flet loads images from the local assets folder
+    page.assets_dir = "assets"
     
     # Initialize views
     def get_view(route):

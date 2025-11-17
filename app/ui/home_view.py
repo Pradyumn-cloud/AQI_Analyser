@@ -188,7 +188,6 @@ class HomeView(ft.View):
         self.metrics.add_metric("Dominant Pollutant", analysis['dominant_pollutant'], ft.Icons.WARNING, S.ERROR)
         self.metrics.add_metric("Active Stations", str(len(summary.stations)), ft.Icons.SENSORS, S.INFO)
         self.metrics.add_metric("Air Quality", analysis['level'], ft.Icons.AIR, S.get_aqi_color(aqi))
-        self.metrics.add_metric("Health Risk", analysis['health_impact'][:20], ft.Icons.HEALTH_AND_SAFETY, S.WARNING)
         
         # Update pollutants
         self.pollutants_section.clear()
